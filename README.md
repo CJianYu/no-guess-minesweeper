@@ -23,6 +23,11 @@ runs in a browser, in Node, and in the automated tests that gate the site.
   global mine counts, and exhaustive enumeration of connected frontier
   components. `countSolutions` counts every layout consistent with the visible
   numbers, which is how forced moves are identified.
+- **Mine probabilities.** The per-cell counts returned by `countSolutions`
+  divide by the layout total, giving the exact chance that a covered cell holds
+  a mine. The same numbers back the
+  [probability view](https://mossmoss.net/tools/minesweeper-solver/) that turns
+  an unavoidable guess into the best available click.
 - **3BV.** `compute3BV` returns the minimum number of left clicks needed to
   clear a board; the site divides it by time for 3BV/s.
 
@@ -82,6 +87,9 @@ it is a mine.
 - [Play Minesweeper online](https://mossmoss.net/games/minesweeper/) — Classic,
   verified No-Guess, a daily challenge, and a pattern trainer.
 - [Minesweeper solver](https://mossmoss.net/tools/minesweeper-solver/) — enter a
-  position and see every cell that is provably safe or provably a mine.
+  position to see every cell that is provably safe or provably a mine, plus the
+  exact mine probability of the rest when nothing is forced.
+- [Daily Minesweeper](https://mossmoss.net/games/minesweeper/daily/) — one board
+  per difficulty per day, with past boards replayable by date.
 - [Minesweeper patterns cheat sheet](https://mossmoss.net/guides/minesweeper-patterns/)
 - [How No-Guess mode works](https://mossmoss.net/guides/minesweeper-no-guess/)
