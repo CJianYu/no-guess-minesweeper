@@ -1,0 +1,169 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>No-guess Minesweeper engine demo</title>
+<style>
+  :root { --bg:#08120d; --panel:#0d1b14; --line:rgba(255,255,255,.12); --text:#e8f3ec; --muted:#93a89b; --accent:#9fe870; }
+  * { box-sizing: border-box; }
+  body { margin:0; padding:20px; background:var(--bg); color:var(--text); font-family:ui-sans-serif,system-ui,-apple-system,sans-serif; }
+  a { color:var(--accent); }
+  header { display:flex; flex-wrap:wrap; align-items:baseline; justify-content:space-between; gap:12px; margin-bottom:14px; }
+  h1 { margin:0; font-size:20px; letter-spacing:-.03em; }
+  .meta { color:var(--muted); font-size:13px; }
+  .bar { display:flex; flex-wrap:wrap; gap:8px; margin-bottom:14px; }
+  button { min-height:38px; padding:0 14px; border-radius:10px; border:1px solid var(--line); background:var(--panel); color:var(--text); font:inherit; font-weight:700; cursor:pointer; }
+  button.primary { background:var(--accent); color:#06120b; border-color:var(--accent); }
+  .board { display:grid; grid-template-columns:repeat(9,32px); gap:3px; width:max-content; touch-action:manipulation; }
+  .cell { width:32px; height:32px; border:0; border-radius:5px; padding:0; font:inherit; font-weight:900; font-size:17px; display:grid; place-items:center; cursor:pointer; background:#16281e; box-shadow:inset 0 -2px 0 rgba(0,0,0,.28); color:#06120b; }
+  .cell.open { background:#cfd8d1; }
+  .cell.open[data-n="1"] { color:#1d4ed8; } .cell.open[data-n="2"] { color:#15803d; } .cell.open[data-n="3"] { color:#b91c1c; }
+  .cell.open[data-n="4"] { color:#6d28d9; } .cell.open[data-n="5"] { color:#9a3412; } .cell.open[data-n="6"] { color:#0f766e; }
+  .cell.open[data-n="7"] { color:#111; } .cell.open[data-n="8"] { color:#6b7280; }
+  .cell.flag::after { content:"⚑"; color:#f59e0b; font-size:15px; }
+  .cell.hint-safe { outline:3px solid #6ee7a8; outline-offset:-3px; }
+  .cell.hint-mine { outline:3px solid #f87171; outline-offset:-3px; }
+  .cell.mine { background:#7f1d1d; }
+  #status { margin-top:14px; padding:12px 14px; border:1px solid var(--line); border-radius:12px; background:var(--panel); font-size:14px; line-height:1.5; }
+  footer { margin-top:20px; color:var(--muted); font-size:13px; line-height:1.7; }
+</style>
+</head>
+<body>
+  <header>
+    <h1>No-guess Minesweeper engine</h1>
+    <p class="meta">Demo of <code>engine.js</code> · <a href="https://mossmoss.net/games/minesweeper/">play the full game</a></p>
+  </header>
+
+  <div class="bar">
+    <button class="primary" id="new">New no-guess board</button>
+    <button id="hint">Hint</button>
+  </div>
+
+  <div class="board" id="board" role="grid" aria-label="Minesweeper board"></div>
+
+  <div id="status">Left-click to reveal, right-click to flag. Hint runs the same solver that verifies no-guess boards.</div>
+
+  <footer>
+    Every board here was generated and solver-checked before it was shown.
+    <a href="https://mossmoss.net/games/minesweeper/">Play the full game</a> ·
+    <a href="https://mossmoss.net/tools/minesweeper-solver/">Minesweeper solver</a> ·
+    <a href="https://mossmoss.net/guides/minesweeper-patterns/">Patterns guide</a>
+  </footer>
+
+<script type="module">
+import { DIFFICULTIES, generateBoard, neighborTable, solvePosition } from "./engine.js";
+
+const config = DIFFICULTIES.beginner;
+const NEI = neighborTable(config.cols, config.rows);
+const els = { board: document.getElementById("board"), status: document.getElementById("status") };
+const state = { numbers: null, revealed: null, flagged: null, lost: false, won: false };
+
+function render() {
+  const cells = els.board.children;
+  for (let i = 0; i < cells.length; i++) {
+    const cell = cells[i];
+    const value = state.numbers[i];
+    cell.className = "cell";
+    cell.textContent = "";
+    if (state.revealed[i]) {
+      cell.classList.add("open");
+      if (value > 0) { cell.textContent = String(value); cell.dataset.n = String(value); }
+      else delete cell.dataset.n;
+      if (value === -1) cell.classList.add("mine");
+    } else if (state.flagged[i]) {
+      cell.classList.add("flag");
+    }
+  }
+}
+
+function newGame() {
+  const first = Math.floor((config.rows >> 1) * config.cols + (config.cols >> 1));
+  const seed = `demo-${Date.now()}-${Math.random()}`;
+  const board = generateBoard({ ...config, seed, noGuess: true, firstIndex: first });
+  state.numbers = board.numbers;
+  state.revealed = Uint8Array.from(board.opening.revealed);
+  state.flagged = Uint8Array.from(board.opening.flagged);
+  state.lost = false;
+  state.won = false;
+
+  els.board.replaceChildren();
+  const fragment = document.createDocumentFragment();
+  for (let i = 0; i < config.cols * config.rows; i++) {
+    const cell = document.createElement("button");
+    cell.type = "button";
+    cell.className = "cell";
+    cell.dataset.i = i;
+    fragment.appendChild(cell);
+  }
+  els.board.replaceChildren(fragment);
+  render();
+  els.status.textContent = `Seeded board, verified solvable without guessing (${board.attempts} attempt${board.attempts === 1 ? "" : "s"}). 3BV ${board.bv}.`;
+}
+
+function reveal(start) {
+  if (state.lost || state.won || state.revealed[start] || state.flagged[start]) return;
+  if (state.numbers[start] === -1) {
+    state.lost = true;
+    for (let i = 0; i < state.numbers.length; i++) if (state.numbers[i] === -1) state.revealed[i] = 1;
+    render();
+    els.status.textContent = "Mine hit. This board was solvable — use Hint next time.";
+    return;
+  }
+  const stack = [start];
+  while (stack.length) {
+    const i = stack.pop();
+    if (state.revealed[i] || state.flagged[i]) continue;
+    state.revealed[i] = 1;
+    if (state.numbers[i] === 0) for (const j of NEI[i]) if (!state.revealed[j] && !state.flagged[j]) stack.push(j);
+  }
+  render();
+  const hidden = [...state.revealed].filter((value) => !value).length;
+  if (hidden === config.mines) { state.won = true; els.status.textContent = "Board cleared."; }
+}
+
+function flag(i) {
+  if (state.revealed[i]) return;
+  state.flagged[i] = state.flagged[i] ? 0 : 1;
+  render();
+}
+
+function hint() {
+  if (state.lost || state.won) return;
+  const result = solvePosition({
+    cols: config.cols,
+    rows: config.rows,
+    numbers: state.numbers,
+    mineCount: config.mines,
+    revealed: state.revealed,
+    flagged: state.flagged,
+  });
+  if (!result.steps.length) {
+    els.status.textContent = "No forced move from the current position — this board needs another revealed cell first.";
+    return;
+  }
+  const step = result.steps[0];
+  for (const cell of els.board.children) cell.classList.remove("hint-safe", "hint-mine");
+  for (const i of step.cells) els.board.children[i].classList.add(step.type === "safe" ? "hint-safe" : "hint-mine");
+  els.status.textContent = step.type === "safe"
+    ? `Provably safe: ${step.cells.map((i) => `R${Math.floor(i / config.cols) + 1}C${(i % config.cols) + 1}`).join(", ")}.`
+    : `Provably a mine: ${step.cells.map((i) => `R${Math.floor(i / config.cols) + 1}C${(i % config.cols) + 1}`).join(", ")}.`;
+}
+
+els.board.addEventListener("click", (event) => {
+  const cell = event.target.closest(".cell");
+  if (cell) reveal(Number(cell.dataset.i));
+});
+els.board.addEventListener("contextmenu", (event) => {
+  const cell = event.target.closest(".cell");
+  if (!cell) return;
+  event.preventDefault();
+  flag(Number(cell.dataset.i));
+});
+document.getElementById("new").addEventListener("click", newGame);
+document.getElementById("hint").addEventListener("click", hint);
+
+newGame();
+</script>
+</body>
+</html>
