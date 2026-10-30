@@ -1,0 +1,19 @@
+{
+  "name": "no-guess-minesweeper",
+  "version": "1.0.0",
+  "description": "Deterministic no-guess Minesweeper engine: seeded board generation, constraint solver, no-guess verification, and 3BV scoring.",
+  "type": "module",
+  "main": "engine.js",
+  "exports": "./engine.js",
+  "files": ["engine.js"],
+  "scripts": {
+    "test": "node test.mjs"
+  },
+  "homepage": "https://mossmoss.net/games/minesweeper/",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/CJianYu/no-guess-minesweeper.git"
+  },
+  "keywords": ["minesweeper", "no-guess", "solver", "puzzle", "game-engine", "3bv"],
+  "private": true
+}
