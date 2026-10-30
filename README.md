@@ -82,6 +82,27 @@ rule, the global mine count, or an exhaustive frontier enumeration proves it
 safe in every consistent layout, and only flags a cell when every layout agrees
 it is a mine.
 
+## Measuring how often boards need a guess
+
+`study.mjs` generates boards from fixed seeds, opens them at the centre exactly
+as the game does, and runs the solver to count how many can be cleared without
+guessing.
+
+```sh
+node study.mjs 10000
+```
+
+With 10,000 boards per difficulty:
+
+| Board | Cleared by logic alone |
+| --- | --- |
+| Beginner 9x9, 10 mines | 83.8% |
+| Intermediate 16x16, 40 mines | 61.1% |
+| Expert 30x16, 99 mines | 11.5% |
+
+The full write-up is at
+[How often Minesweeper requires a guess](https://mossmoss.net/guides/minesweeper-guess-statistics/).
+
 ## Play it
 
 - [Play Minesweeper online](https://mossmoss.net/games/minesweeper/) — Classic,
